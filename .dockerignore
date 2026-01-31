@@ -1,0 +1,29 @@
+# Virtual env and cache (rebuilt in image)
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.mypy_cache
+
+# Env and secrets (.env is copied into image explicitly)
+.env.*
+!.env.example
+*env_example*
+
+# Git and IDE
+.git
+.gitignore
+.vscode
+.idea
+
+# Docker
+Dockerfile
+docker-compose*.yaml
+docker-compose*.yml
+.dockerignore
+
+# Docs and misc (keep pyproject.toml and app/)
+README.md
+LICENSE
+*.md

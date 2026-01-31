@@ -1,0 +1,35 @@
+[project]
+name = "sauth"
+version = "1.0"
+description = "Simple auth service"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "asyncpg>=0.31.0",
+    "fastapi>=0.128.0",
+    "passlib>=1.7.4",
+    "pydantic-settings>=2.12.0",
+    "pydantic[email]>=2.12.5",
+    "pyjwt>=2.11.0",
+    "python-multipart>=0.0.22",
+    "redis>=7.1.0",
+    "sqlalchemy[asyncio]>=2.0.46",
+    "uvicorn[standard]>=0.40.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+src = ["app"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.14",
+]
