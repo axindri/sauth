@@ -50,6 +50,13 @@ class DbService:
             stmt = select(model).where(and_(*conditions)).limit(1)
         return (await session.execute(stmt)).scalar_one_or_none()
 
+    async def update(self, session: AsyncSession, instance: T, **kwargs: Any) -> T:
+        for key, value in kwargs.items():
+            setattr(instance, key, value)
+        await session.commit()
+        await session.refresh(instance)
+        return instance
+
 
 async def get_db_service() -> DbService:
     return DbService()

@@ -2,9 +2,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from app.core.exceptions import UnauthorizedException
 from app.models import RefreshToken
 from app.services.db import DbService, get_db_service
-from app.services.jwt import JwtService, get_jwt_service
+from app.services.jwt import REFRESH_TYPE, JwtService, get_jwt_service
 from app.services.redis import RedisService, get_redis_service
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,6 +41,26 @@ class TokenService:
         )
 
         return access_token, refresh_token
+
+    async def refresh_tokens(
+        self,
+        session: AsyncSession,
+        refresh_token: str,
+    ) -> tuple[str, str]:
+        payload = self.jwt_service.decode(refresh_token)
+        if payload.get("type") != REFRESH_TYPE:
+            raise UnauthorizedException(detail="Invalid refresh token")
+        user_id = UUID(payload["sub"])
+        record = await self.db.get_one_or_none(session, RefreshToken, token=refresh_token)
+        if not record:
+            raise UnauthorizedException(detail="Refresh token not found")
+        if record.is_used:
+            raise UnauthorizedException(detail="Refresh token already used")
+        now = datetime.now(UTC).replace(tzinfo=None)
+        if record.expires_at < now:
+            raise UnauthorizedException(detail="Refresh token expired")
+        await self.db.update(session, record, is_used=True)
+        return await self.issue_tokens(session, user_id)
 
 
 def get_token_service(
