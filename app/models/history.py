@@ -8,8 +8,8 @@ class LoginHistory(Base):
 
     id: Mapped[UUID] = mapped_column(UUID, primary_key=True)
     user_id: Mapped[UUID] = mapped_column(UUID, index=True)
-    ip_address: Mapped[str] = mapped_column(String(255))
-    user_agent: Mapped[str] = mapped_column(String(255))
+    ip_address: Mapped[str] = mapped_column(String(255), nullable=True)
+    user_agent: Mapped[str] = mapped_column(String(255), nullable=True)
 
     __table_args__ = (
         Index(
