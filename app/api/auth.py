@@ -4,11 +4,15 @@ from app.core.constants import Role
 from app.core.exceptions import BadRequestException, NotFoundException, UnauthorizedException
 from app.core.logger import get_logger
 from app.core.security import PasswordManager
-from app.db.session import get_session
+from app.db.db import get_session
+from app.dependencies.current_context import get_current_token, get_current_user
 from app.models import Role as RoleModel
 from app.models import User as UserModel
-from app.schemas import LoginRequest, MessageResponse, RegisterRequest
+from app.schemas import LoginRequest, MessageResponse, RegisterRequest, TokenResponse, UserResponse
 from app.services.db import DbService, get_db_service
+from app.services.jwt import JwtService, get_jwt_service
+from app.services.redis import RedisService, get_redis_service
+from app.services.token import TokenService, get_token_service
 from fastapi import APIRouter, Depends
 
 logger = get_logger(__name__)
@@ -19,7 +23,10 @@ password_manager = PasswordManager()
 
 
 @router.post("/register")
-async def register(register_request: RegisterRequest, db: DbService = Depends(get_db_service)) -> MessageResponse:
+async def register(
+    register_request: RegisterRequest,
+    db: DbService = Depends(get_db_service),
+) -> MessageResponse:
     register_request_data = register_request.model_dump(exclude={"password"})
     register_request_data["password"] = password_manager.hash(register_request.password)
     async with get_session() as session:
@@ -33,24 +40,48 @@ async def register(register_request: RegisterRequest, db: DbService = Depends(ge
     return MessageResponse(message="User created successfully")
 
 
-@router.post("/login")
-async def login(login_request: LoginRequest, db: DbService = Depends(get_db_service)) -> MessageResponse:
+@router.post("/login", response_model=TokenResponse)
+async def login(
+    login_request: LoginRequest,
+    db: DbService = Depends(get_db_service),
+    token_service: TokenService = Depends(get_token_service),
+):
     async with get_session() as session:
         user = await db.get_first(session, UserModel, email=login_request.email)
         if not user:
-            logger.error(f"User not found: {login_request.email}")
+            logger.error("User not found: %s", login_request.email)
             raise UnauthorizedException(detail="Invalid credentials")
         if not password_manager.verify(login_request.password, user.password):
-            logger.error(f"Invalid password for user: {login_request.email}")
+            logger.error("Invalid password for user: %s", login_request.email)
             raise UnauthorizedException(detail="Invalid credentials")
-    return MessageResponse(message="User logged in successfully")
+        access_token, refresh_token = await token_service.issue_tokens(session, user.id)
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
 @router.get("/me")
-def me():
-    return {"message": "ok"}
+async def me(user: UserModel = Depends(get_current_user), db: DbService = Depends(get_db_service)):
+    async with get_session() as session:
+        user_role = await db.get_one_or_none(session, RoleModel, id=user.role_id)
+        if not user_role:
+            raise NotFoundException(detail="Role not found")
+        return UserResponse(
+            id=user.id,
+            email=user.email,
+            name=user.name,
+            role=Role[user_role.name],
+            is_verified=user.is_verified,
+            data=user.data,
+        )
 
 
-@router.post("/logout")
-def logout():
-    return {"message": "ok"}
+@router.post("/logout", response_model=MessageResponse)
+async def logout(
+    token: str = Depends(get_current_token),
+    redis_service: RedisService = Depends(get_redis_service),
+    jwt_service: JwtService = Depends(get_jwt_service),
+) -> MessageResponse:
+    payload = jwt_service.decode(token)
+    jti = payload.get("jti")
+    if jti:
+        await redis_service.delete_access_token(jti)
+    return MessageResponse(message="Logged out successfully")

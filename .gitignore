@@ -69,3 +69,4 @@ logs/
 *.sqlite
 *.db
 db_data/
+redis_data/

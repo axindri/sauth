@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 from app.core.constants import Role
-from app.db.session import get_session
+from app.db.db import get_session
 from app.models import Role as RoleModel
 from sqlalchemy import select
 

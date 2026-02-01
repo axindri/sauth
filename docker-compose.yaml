@@ -19,6 +19,22 @@ services:
       driver: json-file
       options:
         max-size: "500m"
+  
+  redis:
+    image: redis:8.4.0
+    volumes:
+      - ./redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "500m"
   api:
     build:
       context: .
@@ -33,6 +49,8 @@ services:
       - ./app:/opt/sauth/app
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:

@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from app.api import api_router
 from app.core.logger import get_logger, setup_logging
 from app.core.settings import settings
-from app.db.session import engine, init, ping
+from app.db.db import engine, init, ping
 from app.services.startup import create_default_roles
 from fastapi import FastAPI
 
